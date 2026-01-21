@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/command" // Ensure CommandList is imported if using recent shadcn versions
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { upsertCategory, createLogEntry, uploadFilePlaceholder } from "@/app/actions"
+import { upsertCategory, createLogEntry, updateLogEntry, uploadFilePlaceholder } from "@/app/actions/supabase-actions"
 import { toast } from "sonner" // Assuming sonner or useToast
 import { Label } from "@/components/ui/label"
 
@@ -52,7 +52,7 @@ const formSchema = z.object({
     date: z.date({
         required_error: "A date is required.",
     }),
-    categoryId: z.string({
+    categoryId: z.coerce.number({
         required_error: "Please select a category.",
     }),
     description: z.string(),
@@ -60,11 +60,24 @@ const formSchema = z.object({
 })
 
 type Category = {
-    id: string
+    id: number | string
     name: string
 }
 
-export function LogEntryForm({ existingCategories }: { existingCategories: Category[] }) {
+type LogEntryFormProps = {
+    existingCategories: Category[]
+    initialData?: {
+        id: number
+        title: string
+        date: string // ISO string from DB
+        category_id: number
+        description: string
+        image_url?: string
+    }
+    onSuccess?: () => void
+}
+
+export function LogEntryForm({ existingCategories, initialData, onSuccess }: LogEntryFormProps) {
     const [categories, setCategories] = useState<Category[]>(existingCategories)
     const [openCategory, setOpenCategory] = useState(false)
     const [inputValue, setInputValue] = useState("") // for creatable input inside command
@@ -73,20 +86,38 @@ export function LogEntryForm({ existingCategories }: { existingCategories: Categ
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            title: "",
-            date: new Date(),
-            description: "",
-            categoryId: "",
+            title: initialData?.title || "",
+            date: initialData?.date ? new Date(initialData.date) : new Date(),
+            description: initialData?.description || "",
+            categoryId: initialData?.category_id || (!!initialData ? 0 : ("" as any)), // Handle 0 or empty for select
+            imageUrl: initialData?.image_url || "",
         },
     })
 
     async function onSubmit(values: z.infer<typeof formSchema>) {
         try {
-            await createLogEntry(values)
-            toast.success("Log entry created!")
-            form.reset()
+            // FIX: Format date as YYYY-MM-DD string to avoid timezone shifts
+            const formattedDate = format(values.date, "yyyy-MM-dd")
+
+            const payload = {
+                ...values,
+                date: formattedDate
+            }
+
+            if (initialData) {
+                await updateLogEntry(initialData.id, payload)
+                toast.success("Log updated successfully!")
+            } else {
+                await createLogEntry(payload)
+                toast.success("Log entry created!")
+                form.reset()
+            }
+
+            if (onSuccess) {
+                onSuccess()
+            }
         } catch (error) {
-            toast.error("Failed to create log.")
+            toast.error(initialData ? "Failed to update log." : "Failed to create log.")
         }
     }
 
@@ -96,7 +127,7 @@ export function LogEntryForm({ existingCategories }: { existingCategories: Categ
         try {
             const newCat = await upsertCategory(inputValue)
             setCategories((prev) => [...prev, newCat])
-            form.setValue("categoryId", newCat.id)
+            form.setValue("categoryId", newCat.id as number)
             setOpenCategory(false)
             setInputValue("")
             toast.success(`Category "${newCat.name}" created`)
@@ -126,7 +157,7 @@ export function LogEntryForm({ existingCategories }: { existingCategories: Categ
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 max-w-2xl mx-auto p-4 border rounded-lg shadow-sm bg-card">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 max-w-2xl mx-auto p-4 md:p-0">
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
@@ -238,7 +269,7 @@ export function LogEntryForm({ existingCategories }: { existingCategories: Categ
                                                         value={category.name}
                                                         key={category.id}
                                                         onSelect={() => {
-                                                            form.setValue("categoryId", category.id)
+                                                            form.setValue("categoryId", Number(category.id))
                                                             setOpenCategory(false)
                                                         }}
                                                     >
@@ -292,7 +323,7 @@ export function LogEntryForm({ existingCategories }: { existingCategories: Categ
                     {form.watch("imageUrl") && <p className="text-xs text-green-600">Image attached</p>}
                 </div>
 
-                <Button type="submit" className="w-full">Save Log Entry</Button>
+                <Button type="submit" className="w-full">{initialData ? "Update Log" : "Save Log Entry"}</Button>
             </form>
         </Form>
     )

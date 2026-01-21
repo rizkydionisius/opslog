@@ -1,54 +1,34 @@
-
-import { auth } from "@/auth"
-import { getDashboardStats } from "../actions"
+import { createClient } from "@/utils/supabase/server"
+import { redirect } from "next/navigation"
+import { getDashboardStats } from "@/app/actions/supabase-actions"
 import { BigCalendar } from "@/components/big-calendar"
-import { ExportButtons } from "@/components/export-buttons"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { prisma } from "@/lib/prisma"
-import { Activity, CalendarCheck, CheckCircle2, History } from "lucide-react"
-import { Button } from "@/components/ui/button"
-
-// MOCK USER for development bypass
-const MOCK_USER_ID = "dev-user-id"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Activity, CalendarCheck, CheckCircle2 } from "lucide-react"
 
 export default async function DashboardPage() {
-    let session = await auth()
+    const supabase = await createClient()
+    const { data: { user }, error } = await supabase.auth.getUser()
 
-    // BYPASS for development
-    if (!session?.user?.id) {
-        session = {
-            user: {
-                id: MOCK_USER_ID,
-                name: "Admin IT",
-                email: "admin@rs.com",
-            },
-            expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-        }
+    if (error || !user) {
+        redirect("/login")
     }
 
-    const userId = session!.user!.id as string // safe due to bypass above
-
     const stats = await getDashboardStats()
-    const categories = await prisma.category.findMany({
-        where: { userId },
-        select: { id: true, name: true }
-    })
 
-    // Prepare data for export
-    const exportData = await prisma.logEntry.findMany({
-        where: { userId },
-        take: 100,
-        orderBy: { date: 'desc' },
-        select: {
-            id: true,
-            date: true,
-            title: true,
-            description: true,
-            category: { select: { name: true } }
-        }
-    })
+    // Add debug log to verify data arrival
+    console.log('Logs in Page:', {
+        calendarLogsCount: stats?.calendarLogs?.length,
+        recentActivityCount: stats?.recentActivity?.length
+    });
 
-    const hasLoggedToday = stats.recentActivity.some(log => {
+    // Replace Prisma category fetch with Supabase
+    // Using simple query to get categories
+    const { data: categories } = await supabase
+        .from('categories')
+        .select('id, name')
+        .eq('user_id', user.id)
+
+    const hasLoggedToday = (stats?.recentActivity || []).some(log => {
         const today = new Date().toDateString()
         return new Date(log.date).toDateString() === today
     })
@@ -58,7 +38,7 @@ export default async function DashboardPage() {
             {/* Greeting */}
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-                <p className="text-muted-foreground">Halo, {session!.user!.name}. Berikut adalah ringkasan aktivitas operasional hari ini.</p>
+                <p className="text-muted-foreground">Halo, {user.user_metadata?.full_name || user.email}. Berikut adalah ringkasan aktivitas operasional hari ini.</p>
             </div>
 
             {/* Section A: Stats Cards (3 Columns) */}
@@ -69,7 +49,7 @@ export default async function DashboardPage() {
                         <Activity className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-green-600">{stats.currentStreak} Hari</div>
+                        <div className="text-2xl font-bold text-green-600">{stats?.currentStreak || 0} Hari</div>
                         <p className="text-xs text-muted-foreground">
                             Pertahankan konsistensi Anda!
                         </p>
@@ -81,7 +61,7 @@ export default async function DashboardPage() {
                         <CalendarCheck className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.totalLogsThisMonth}</div>
+                        <div className="text-2xl font-bold">{stats?.totalLogsThisMonth || 0}</div>
                         <p className="text-xs text-muted-foreground">
                             Aktivitas tercatat pada periode ini.
                         </p>
@@ -110,11 +90,11 @@ export default async function DashboardPage() {
                 <Card className="w-full shadow-sm">
 
                     <CardContent className="p-6">
-                        <BigCalendar events={stats.recentActivity.map(log => ({
+                        <BigCalendar events={(stats?.calendarLogs || []).map(log => ({
                             id: log.id,
                             title: log.title,
                             date: log.date,
-                            category: log.category.name
+                            category: log.category
                         }))} />
                     </CardContent>
                 </Card>
@@ -126,17 +106,17 @@ export default async function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
-                            {stats.recentActivity.length === 0 ? (
+                            {(stats?.recentActivity || []).length === 0 ? (
                                 <div className="p-4 text-center text-sm text-muted-foreground bg-muted/50 rounded-lg">
                                     Belum ada aktivitas.
                                 </div>
                             ) : (
-                                stats.recentActivity.map(log => (
+                                (stats?.recentActivity || []).map(log => (
                                     <div key={log.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
                                         <div className="space-y-1">
                                             <p className="text-sm font-medium leading-none">{log.title}</p>
                                             <p className="text-xs text-muted-foreground">
-                                                {log.category.name}
+                                                {log.category}
                                             </p>
                                         </div>
                                         <div className="text-xs text-muted-foreground">
