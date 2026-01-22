@@ -78,7 +78,7 @@ export async function getLogs(dateFilter?: string) {
                 category:categories(name)
             `)
             .eq("user_id", user.id)
-            .order("date", { ascending: false });
+            .order("created_at", { ascending: true });
 
         if (dateFilter) {
             query = query.gte("date", `${dateFilter}T00:00:00`).lte("date", `${dateFilter}T23:59:59`);
