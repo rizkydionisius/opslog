@@ -1,11 +1,14 @@
 
-import { createClient } from "@/utils/supabase/server"
+import { auth } from "@/auth"
 import { SettingsForm } from "@/components/settings-form"
 import { Separator } from "@/components/ui/separator"
+import { redirect } from "next/navigation"
 
 export default async function SettingsPage() {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const session = await auth()
+    if (!session?.user) {
+        redirect("/login")
+    }
 
     return (
         <div className="space-y-6">
@@ -15,7 +18,7 @@ export default async function SettingsPage() {
             </div>
             <Separator />
             <div className="grid gap-6 max-w-2xl">
-                <SettingsForm user={user} />
+                <SettingsForm user={session.user} />
             </div>
         </div>
     )

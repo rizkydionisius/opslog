@@ -1,6 +1,6 @@
 import { LogEntryForm } from "@/components/log-form"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { getCategories } from "@/app/actions/supabase-actions"
+import { getCategories } from "@/app/actions/db-actions"
 
 export default async function CreateLogPage() {
     const categories = await getCategories()

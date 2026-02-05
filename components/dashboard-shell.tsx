@@ -86,12 +86,11 @@ export function DashboardShell({ children, userEmail }: DashboardShellProps) {
                 <div className="mt-auto p-4">
                     <div className="flex items-center gap-4 border-t pt-4">
                         <Avatar>
-                            <AvatarImage src="/placeholder-user.jpg" alt={userName} />
+                            <AvatarImage src="/placeholder-user.svg" alt={userName} />
                             <AvatarFallback>{userName.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
-                        <div className="flex flex-col overflow-hidden">
-                            <span className="text-sm font-medium truncate">{userName}</span>
-                            <span className="text-xs text-muted-foreground truncate" title={userEmail}>{userEmail}</span>
+                        <div className="flex flex-col overflow-hidden text-left">
+                            <span className="text-sm font-medium truncate" title={userEmail}>{userEmail}</span>
                         </div>
                     </div>
                 </div>

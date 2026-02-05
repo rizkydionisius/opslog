@@ -1,5 +1,5 @@
 import { LogsClient } from "@/components/logs-client"
-import { getLogs, getCategories } from "@/app/actions/supabase-actions"
+import { getLogs, getCategories } from "@/app/actions/db-actions"
 
 export default async function LogsPage(props: { searchParams: Promise<{ date?: string }> }) {
     const params = await props.searchParams

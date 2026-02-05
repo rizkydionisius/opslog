@@ -1,32 +1,20 @@
-import { createClient } from "@/utils/supabase/server"
+import { auth } from "@/auth"
 import { redirect } from "next/navigation"
-import { getDashboardStats } from "@/app/actions/supabase-actions"
+import { getDashboardStats } from "@/app/actions/db-actions"
 import { BigCalendar } from "@/components/big-calendar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Activity, CalendarCheck, CheckCircle2 } from "lucide-react"
+import { WelcomeToast } from "@/components/welcome-toast"
 
 export default async function DashboardPage() {
-    const supabase = await createClient()
-    const { data: { user }, error } = await supabase.auth.getUser()
+    const session = await auth()
 
-    if (error || !user) {
+    if (!session?.user) {
         redirect("/login")
     }
+    const user = session.user
 
     const stats = await getDashboardStats()
-
-    // Add debug log to verify data arrival
-    console.log('Logs in Page:', {
-        calendarLogsCount: stats?.calendarLogs?.length,
-        recentActivityCount: stats?.recentActivity?.length
-    });
-
-    // Replace Prisma category fetch with Supabase
-    // Using simple query to get categories
-    const { data: categories } = await supabase
-        .from('categories')
-        .select('id, name')
-        .eq('user_id', user.id)
 
     const hasLoggedToday = (stats?.recentActivity || []).some(log => {
         const today = new Date().toDateString()
@@ -35,10 +23,11 @@ export default async function DashboardPage() {
 
     return (
         <div className="space-y-6">
+            <WelcomeToast userName={user.name || user.email || "User"} />
             {/* Greeting */}
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-                <p className="text-muted-foreground">Halo, {user.user_metadata?.full_name || user.email}. Berikut adalah ringkasan aktivitas operasional hari ini.</p>
+                <p className="text-muted-foreground">Halo, {user.name || user.email}. Berikut adalah ringkasan aktivitas operasional hari ini.</p>
             </div>
 
             {/* Section A: Stats Cards (3 Columns) */}

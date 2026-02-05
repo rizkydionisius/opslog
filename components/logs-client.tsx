@@ -17,14 +17,17 @@ import { cn } from "@/lib/utils"
 import { LogEntryForm } from "@/components/log-form"
 
 type Log = {
-    id: number
+    id: string
     title: string
-    date: string
+    date: Date
     description: string
-    category_id: number
+    categoryId: string
     category: string
     status: string
-    image_url?: string
+    imageUrl: string | null
+    createdAt: Date
+    updatedAt: Date
+    userId: string
 }
 
 type LogsClientProps = {

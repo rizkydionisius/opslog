@@ -1,5 +1,5 @@
 
-import { cookies } from "next/headers"
+import { auth } from "@/auth"
 import { DashboardShell } from "@/components/dashboard-shell"
 
 export default async function DashboardLayout({
@@ -7,8 +7,8 @@ export default async function DashboardLayout({
 }: {
     children: React.ReactNode
 }) {
-    const cookieStore = await cookies()
-    const userEmail = cookieStore.get("user_email")?.value || "user@example.com"
+    const session = await auth()
+    const userEmail = session?.user?.email || "user@example.com"
 
     return (
         <DashboardShell userEmail={userEmail}>

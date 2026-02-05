@@ -1,33 +1,65 @@
 'use server'
 
-import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
+import { signIn, signOut } from "@/auth"
+import { AuthError } from "next-auth"
 
-import { createClient } from "@/utils/supabase/server"
+// ... imports
+import { hash } from "bcryptjs"
+import { prisma } from "@/lib/prisma"
 
 export async function loginAction(formData: FormData) {
-    const email = formData.get("email") as string
-    const password = formData.get("password") as string
-
-    const supabase = await createClient()
-
-    const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-    })
-
-    if (error) {
-        return { error: error.message }
+    try {
+        // Convert formData to a plain object and add redirectTo
+        const data = Object.fromEntries(formData)
+        await signIn("credentials", { ...data, redirectTo: "/dashboard?welcome=true" })
+    } catch (error) {
+        if (error instanceof AuthError) {
+            switch (error.type) {
+                case "CredentialsSignin":
+                    return { error: "Invalid credentials." }
+                default:
+                    return { error: "Something went wrong." }
+            }
+        }
+        throw error
     }
-
-    revalidatePath('/', 'layout')
-    redirect("/dashboard")
 }
 
 export async function logoutAction() {
-    const supabase = await createClient()
-    await supabase.auth.signOut()
+    await signOut()
+}
 
-    revalidatePath('/', 'layout')
-    redirect("/login")
+export async function registerAction(formData: FormData) {
+    const name = formData.get("name") as string
+    const email = formData.get("email") as string
+    const password = formData.get("password") as string
+
+    if (!name || !email || !password) {
+        return { error: "All fields are required." }
+    }
+
+    try {
+        const existingUser = await prisma.user.findUnique({
+            where: { email },
+        })
+
+        if (existingUser) {
+            return { error: "User already exists." }
+        }
+
+        const hashedPassword = await hash(password, 10)
+
+        await prisma.user.create({
+            data: {
+                name,
+                email,
+                password: hashedPassword,
+            },
+        })
+
+        return { success: true }
+    } catch (error) {
+        console.error("Registration error:", error)
+        return { error: "Failed to create account." }
+    }
 }

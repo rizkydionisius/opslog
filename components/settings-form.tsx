@@ -1,15 +1,15 @@
 "use client"
 
 import { useState } from "react"
-import { updateProfile } from "@/app/actions/supabase-actions"
+import { updateProfile } from "@/app/actions/db-actions"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
-import { User } from "@supabase/supabase-js"
+import { User } from "next-auth"
 
-export function SettingsForm({ user }: { user: User | null }) {
+export function SettingsForm({ user }: { user: User }) {
     const [isLoading, setIsLoading] = useState(false)
 
     async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -43,7 +43,7 @@ export function SettingsForm({ user }: { user: User | null }) {
                         <Input
                             id="fullName"
                             name="fullName"
-                            defaultValue={user?.user_metadata?.full_name || ""}
+                            defaultValue={user?.name || ""}
                             placeholder="Nama Lengkap"
                         />
                     </div>
